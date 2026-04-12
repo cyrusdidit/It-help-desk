@@ -163,12 +163,12 @@ class TicketController extends Controller
             'status' => 'closed',
         ]);
 
-        return redirect('/tickets/'.$ticket->id)->with('success', 'Ticket completed successfully.');
+        return redirect('/dashboard')->with('completion_success', 'Ticket completed successfully.');
     }
 
     public function edit(Ticket $ticket)
     {
-        if($ticket->user_id !== auth()->id()){
+        if ($ticket->user_id !== auth()->id() && auth()->user()->role !== 'it') {
             abort(403);
         }
 
@@ -177,7 +177,7 @@ class TicketController extends Controller
 
     public function update(Request $request, Ticket $ticket)
     {
-        if($ticket->user_id !== auth()->id()){
+        if ($ticket->user_id !== auth()->id() && auth()->user()->role !== 'it') {
             abort(403);
         }
 
