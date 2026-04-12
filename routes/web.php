@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/tickets/{ticket}/comment', [TicketController::class,'addComment'])->name('tickets.addComment');
     Route::post('/tickets/{ticket}/claim', [TicketController::class,'claim'])->name('tickets.claim');
     Route::post('/tickets/{ticket}/complete', [TicketController::class,'complete'])->name('tickets.complete');
+    Route::get('/tickets/{ticket}/attachments/{attachment}', [TicketController::class, 'showAttachment'])->name('tickets.attachments.show');
 
 });
 

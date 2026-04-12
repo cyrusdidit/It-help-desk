@@ -40,21 +40,90 @@
     <p>{{ $ticket->description }}</p>
 
     <h3 class="mt-4 font-semibold">Attachments</h3>
-    <div class="flex flex-wrap gap-4 mt-2">
+    <div class="grid gap-3 mt-2 md:grid-cols-2">
         @foreach($ticket->attachments as $attachment)
             @php
                 $extension = pathinfo($attachment->file_path, PATHINFO_EXTENSION);
-                $isImage = in_array(strtolower($extension), ['jpg', 'jpeg', 'png', 'gif']);
+                $ext = strtolower($extension);
+                $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']);
+                $isPreviewable = $isImage || in_array($ext, ['pdf', 'txt']);
+                $isOffice = in_array($ext, ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']);
+                $previewUrl = route('tickets.attachments.show', ['ticket' => $ticket, 'attachment' => $attachment, 'preview' => 1]);
+                $downloadUrl = route('tickets.attachments.show', ['ticket' => $ticket, 'attachment' => $attachment, 'download' => 1]);
+                $officeViewerUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' . urlencode($previewUrl);
             @endphp
-            @if($isImage)
-                <img src="/storage/{{ $attachment->file_path }}" class="w-32 h-32 object-cover rounded">
-            @else
-                <a href="/storage/{{ $attachment->file_path }}" target="_blank" class="bg-dark-sienna text-soft-dove px-4 py-2 rounded hover:bg-black-raspberry">
-                    Download {{ strtoupper($extension) }} file
-                </a>
-            @endif
+            <div class="rounded border border-soft-dove/20 p-3 bg-dark-sienna/40">
+                <p class="text-sm font-semibold mb-2">{{ basename($attachment->file_path) }}</p>
+
+                @if($isImage)
+                    <img src="{{ $previewUrl }}" class="w-28 h-28 object-cover rounded mb-3">
+                @endif
+
+                <div class="flex flex-wrap gap-2">
+                    @if($isPreviewable)
+                        <button type="button" class="px-3 py-1 rounded bg-green-700 hover:bg-green-800 text-soft-dove text-sm" data-preview-url="{{ $previewUrl }}" data-preview-type="{{ $isImage ? 'image' : ($ext === 'pdf' ? 'pdf' : 'text') }}">
+                            Preview
+                        </button>
+                    @endif
+
+                    @if($isOffice)
+                        <a href="{{ $officeViewerUrl }}" target="_blank" class="px-3 py-1 rounded bg-moon-rock hover:bg-spiced-hot-chocolate text-soft-dove text-sm">
+                            Open in Office Viewer
+                        </a>
+                    @endif
+
+                    <a href="{{ $downloadUrl }}" class="px-3 py-1 rounded bg-dark-sienna hover:bg-black-raspberry text-soft-dove text-sm">
+                        Download
+                    </a>
+                </div>
+            </div>
         @endforeach
     </div>
+
+    <div id="attachment-preview-overlay" class="fixed inset-0 bg-black/60 hidden z-[90]"></div>
+    <div id="attachment-preview-modal" class="fixed inset-0 hidden z-[100] items-center justify-center p-4">
+        <div class="attachment-preview-card relative w-full max-w-4xl bg-moon-rock rounded-xl border border-soft-dove/20 shadow-2xl p-4">
+            <button type="button" id="attachment-preview-close" class="absolute top-2 right-2 px-2 py-1 rounded bg-dark-sienna text-soft-dove hover:bg-black-raspberry">X</button>
+            <div id="attachment-preview-content" class="attachment-preview-content mt-8"></div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const overlay = document.getElementById('attachment-preview-overlay');
+            const modal = document.getElementById('attachment-preview-modal');
+            const content = document.getElementById('attachment-preview-content');
+            const closeBtn = document.getElementById('attachment-preview-close');
+            const previewButtons = document.querySelectorAll('[data-preview-url]');
+
+            const closeModal = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                overlay.classList.add('hidden');
+                content.innerHTML = '';
+            };
+
+            previewButtons.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const url = btn.getAttribute('data-preview-url');
+                    const type = btn.getAttribute('data-preview-type');
+
+                    if (type === 'image') {
+                        content.innerHTML = '<img src="' + url + '" class="max-h-full max-w-full mx-auto rounded" />';
+                    } else {
+                        content.innerHTML = '<iframe src="' + url + '" class="w-full h-full rounded border border-soft-dove/20"></iframe>';
+                    }
+
+                    overlay.classList.remove('hidden');
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                });
+            });
+
+            closeBtn.addEventListener('click', closeModal);
+            overlay.addEventListener('click', closeModal);
+        })();
+    </script>
 
     <h3 class="mt-4 font-semibold">Comments</h3>
     <div class="space-y-2">

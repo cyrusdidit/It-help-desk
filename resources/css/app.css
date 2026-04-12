@@ -1,3 +1,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Reset accidental global height overrides from generated CSS. */
+*,
+::before,
+::after {
+	height: auto;
+}
+
+/* Keep preview sizing scoped to the attachment modal only. */
+.attachment-preview-card {
+	height: 85vh;
+}
+
+.attachment-preview-content {
+	height: calc(100% - 2rem);
+}
+

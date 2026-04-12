@@ -5,6 +5,8 @@ use Illuminate\Http\Request;
 use App\Models\Ticket;
 use App\Models\Attachment;
 use App\Models\Comment;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 
 
 class TicketController extends Controller
@@ -39,8 +41,7 @@ class TicketController extends Controller
 
         if($request->hasFile('attachments')){
             foreach($request->file('attachments') as $attachment){
-
-                $path = $attachment->store('tickets','public');
+                $path = $this->storeAttachmentWithOriginalName($attachment);
 
                 Attachment::create([
                     'ticket_id' => $ticket->id,
@@ -203,8 +204,7 @@ class TicketController extends Controller
 
         if($request->hasFile('attachments')){
             foreach($request->file('attachments') as $attachment){
-
-                $path = $attachment->store('tickets','public');
+                $path = $this->storeAttachmentWithOriginalName($attachment);
 
                 Attachment::create([
                     'ticket_id' => $ticket->id,
@@ -247,5 +247,62 @@ class TicketController extends Controller
     return redirect('/tickets')
             ->with('success','Ticket deleted!');
 }
+
+    public function showAttachment(Request $request, Ticket $ticket, Attachment $attachment)
+    {
+        if ($attachment->ticket_id !== $ticket->id) {
+            abort(404);
+        }
+
+        if ($ticket->user_id !== auth()->id() && auth()->user()->role !== 'it') {
+            abort(403);
+        }
+
+        if (!Storage::disk('public')->exists($attachment->file_path)) {
+            abort(404, 'Attachment file not found on server.');
+        }
+
+        $fullPath = Storage::disk('public')->path($attachment->file_path);
+        $mime = mime_content_type($fullPath) ?: 'application/octet-stream';
+        $downloadName = basename($attachment->file_path);
+
+        if ($request->boolean('download')) {
+            return response()->download($fullPath, $downloadName, ['Content-Type' => $mime]);
+        }
+
+        // Force inline for preview routes (including online office viewers).
+        if ($request->boolean('preview')) {
+            return response()->file($fullPath, [
+                'Content-Type' => $mime,
+                'Content-Disposition' => 'inline; filename="'.$downloadName.'"',
+            ]);
+        }
+
+        // Preview common browser-viewable files; download the rest.
+        if (str_starts_with($mime, 'image/') || in_array($mime, ['application/pdf', 'text/plain'])) {
+            return response()->file($fullPath, ['Content-Type' => $mime]);
+        }
+
+        return response()->download($fullPath, $downloadName, ['Content-Type' => $mime]);
+    }
+
+    private function storeAttachmentWithOriginalName(UploadedFile $file): string
+    {
+        $directory = 'tickets';
+        $originalName = $file->getClientOriginalName();
+        $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+        $extension = pathinfo($originalName, PATHINFO_EXTENSION);
+
+        $candidate = $originalName;
+        $counter = 1;
+
+        while (Storage::disk('public')->exists($directory.'/'.$candidate)) {
+            $suffix = ' ('.$counter.')';
+            $candidate = $baseName.$suffix.($extension ? '.'.$extension : '');
+            $counter++;
+        }
+
+        return $file->storeAs($directory, $candidate, 'public');
+    }
 
 }
